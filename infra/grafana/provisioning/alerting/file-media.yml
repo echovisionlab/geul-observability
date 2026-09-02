@@ -1,0 +1,121 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: file-media
+    folder: Geul Operations
+    interval: 1m
+    rules:
+      - uid: geul-file-projection-dlq
+        title: File ingest projection entered DLQ
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: loki
+            model:
+              datasource:
+                type: loki
+                uid: loki
+              editorMode: code
+              expr: 'sum(count_over_time({service_namespace="geul", deployment_environment="production", exporter="otlp", retention_class="application", domain="queue"} | json event="body.event", queue="body.queue" | event="queue.dlq.accepted" | queue="editor_collab.file_ingest.projection" [1m]))'
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: threshold
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: File ingest projection requires manual DLQ replay
+          description: Replay the original stable message before its verified file reaches the 7-day retention boundary.
+          runbook_url: /d/geul-queue-operations/queue-operations
+        labels:
+          domain: file_media
+          notification_stage: disabled
+          severity: critical
+      - uid: geul-public-asset-purge-stalled
+        title: Public asset deletion and edge purge stalled
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: 'max(geul_public_asset_cleanup_oldest_pending_age_seconds) or vector(0)'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [900]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: threshold
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 5m
+        annotations:
+          summary: A public asset has remained delete_pending beyond three cleanup scans
+          description: Check MinIO deletion, Cloudflare Cache Purge credentials and rate limits, then preserve the row until prefix purge succeeds.
+          runbook_url: /d/geul-service-overview/service-overview
+        labels:
+          domain: file_media
+          notification_stage: disabled
+          severity: critical

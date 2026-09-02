@@ -1,0 +1,368 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Shows suspicious public ingress requests from HAProxy without storing query strings or promoting client identity to Loki stream labels.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Service Overview",
+      "type": "link",
+      "url": "/d/geul-service-overview/service-overview"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Authorization Operations",
+      "type": "link",
+      "url": "/d/geul-authorization-operations/authorization-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Mail Delivery",
+      "type": "link",
+      "url": "/d/geul-mail-delivery/mail-delivery"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Translation Operations",
+      "type": "link",
+      "url": "/d/translation-operations/translation-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Queue Operations",
+      "type": "link",
+      "url": "/d/geul-queue-operations/queue-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Audit & Security",
+      "type": "link",
+      "url": "/d/geul-audit-security/audit-security"
+    }
+  ],
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Count of common secret, source-control, and admin scanner probes over the selected time range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum(count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:raw}\", exporter=\"kubernetes\", service_name=\"haproxy-ingress\"} | json | event=\"ingress.request\" | path=~`(?i)^/(\\.env(?:\\..*)?|\\.git(?:/.*)?|wp-admin(?:/.*)?|wp-login\\.php|phpmyadmin(?:/.*)?|server-status)$` [$__auto]))",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Suspicious probes",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Probe volume grouped by HTTP response status. A blocked probe should normally appear as 403 or 404.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "requests",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 18,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "sum by (status) (count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:raw}\", exporter=\"kubernetes\", service_name=\"haproxy-ingress\"} | json | event=\"ingress.request\" | path=~`(?i)^/(\\.env(?:\\..*)?|\\.git(?:/.*)?|wp-admin(?:/.*)?|wp-login\\.php|phpmyadmin(?:/.*)?|server-status)$` [$__auto]))",
+          "legendFormat": "HTTP {{status}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Probe responses",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Top Cloudflare client IP and direct peer combinations. The Cloudflare value is trusted only when the peer is a configured Cloudflare source range.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "id": 3,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "topk(25, sum by (cf_connecting_ip, peer_ip) (count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:raw}\", exporter=\"kubernetes\", service_name=\"haproxy-ingress\"} | json | event=\"ingress.request\" | path=~`(?i)^/(\\.env(?:\\..*)?|\\.git(?:/.*)?|wp-admin(?:/.*)?|wp-login\\.php|phpmyadmin(?:/.*)?|server-status)$` [$__range])))",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "Top probe sources",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {}
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Cloudflare-provided country, city, and region for suspicious requests. Empty values identify direct-origin or non-enriched traffic.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "id": 4,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "topk(25, sum by (country, city, region) (count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:raw}\", exporter=\"kubernetes\", service_name=\"haproxy-ingress\"} | json | event=\"ingress.request\" | path=~`(?i)^/(\\.env(?:\\..*)?|\\.git(?:/.*)?|wp-admin(?:/.*)?|wp-login\\.php|phpmyadmin(?:/.*)?|server-status)$` [$__range])))",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "Probe locations",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {}
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Recent suspicious requests with exact path but no query string. Use CF-Ray to cross-check the request in Cloudflare Security Events.",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 5,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{service_namespace=\"geul\", deployment_environment=~\"${environment:raw}\", exporter=\"kubernetes\", service_name=\"haproxy-ingress\"} | json | event=\"ingress.request\" | path=~`(?i)^/(\\.env(?:\\..*)?|\\.git(?:/.*)?|wp-admin(?:/.*)?|wp-login\\.php|phpmyadmin(?:/.*)?|server-status)$` | line_format \"{{.method}} {{.path}} status={{.status}} cf_ip={{.cf_connecting_ip}} peer={{.peer_ip}} country={{.country}} city={{.city}} region={{.region}} ray={{.cf_ray}} ua={{.user_agent}}\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Recent suspicious requests",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 40,
+  "tags": ["geul", "security", "ingress"],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "includeAll": true,
+        "label": "Log environment",
+        "multi": true,
+        "name": "environment",
+        "query": "production,staging,development",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Ingress Security",
+  "uid": "geul-ingress-security",
+  "version": 1,
+  "weekStart": ""
+}

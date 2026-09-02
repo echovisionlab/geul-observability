@@ -1,0 +1,95 @@
+// =============================================================================
+// Alloy Test Pipeline Configuration
+// =============================================================================
+// Receives OTLP signals from services and routes logs to Loki only.
+// Traces and metrics are dropped (no Tempo/Mimir in test environment).
+//
+// The transform processor packs OTLP log attributes into the body as JSON,
+// so the log line in Loki contains all structured fields (action, entity_type, etc.)
+// rather than just the slog message.
+
+// OTLP receiver (services push telemetry here)
+otelcol.receiver.otlp "default" {
+	grpc {
+		endpoint = "0.0.0.0:4317"
+	}
+
+	http {
+		endpoint = "0.0.0.0:4318"
+	}
+
+	output {
+		logs = [otelcol.processor.transform.canonical_logs.input]
+	}
+}
+
+// Transform: merge log attributes into body as a map so Loki stores JSON log lines.
+// Without this, otelcol.exporter.loki only uses the OTLP body (slog message) as the
+// log line and stores attributes as structured metadata, which is harder to query.
+otelcol.processor.transform "canonical_logs" {
+	error_mode = "ignore"
+
+	log_statements {
+		context    = "resource"
+		statements = [
+			`set(attributes["service.namespace"], "geul")`,
+			`set(attributes["deployment.environment"], "development")`,
+		]
+	}
+
+	log_statements {
+		context    = "log"
+		statements = [
+			`set(log.attributes["retention_class"], "application") where log.attributes["event"] != nil and log.attributes["outcome"] != nil`,
+			`set(log.attributes["retention_class"], "diagnostic") where log.attributes["event"] == nil or log.attributes["outcome"] == nil`,
+			`set(log.attributes["message"], log.body)`,
+			`set(log.attributes["level"], log.severity_text)`,
+			`set(log.body, log.attributes)`,
+		]
+	}
+
+	output {
+		logs = [otelcol.processor.attributes.loki_labels.input]
+	}
+}
+
+otelcol.processor.attributes "loki_labels" {
+	action {
+		key    = "exporter"
+		action = "upsert"
+		value  = "otlp"
+	}
+
+	action {
+		key    = "loki.resource.labels"
+		action = "upsert"
+		value  = "service.name,service.namespace,deployment.environment"
+	}
+
+	action {
+		key    = "loki.attribute.labels"
+		action = "upsert"
+		value  = "domain,outcome,retention_class,exporter"
+	}
+
+	output {
+		logs = [otelcol.processor.batch.logs.input]
+	}
+}
+
+otelcol.processor.batch "logs" {
+	output {
+		logs = [otelcol.exporter.loki.default.input]
+	}
+}
+
+// Loki exporter (logs)
+otelcol.exporter.loki "default" {
+	forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}

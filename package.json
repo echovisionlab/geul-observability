@@ -1,0 +1,29 @@
+{
+  "name": "@echovisionlab/geul-observability",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Observability runtime configuration assets for Geul.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/echovisionlab/geul-observability.git"
+  },
+  "engines": {
+    "node": "24.19.0"
+  },
+  "scripts": {
+    "check:yaml": "node scripts/ci/validate-yaml.mjs",
+    "format": "prettier --write \"**/*.{js,mjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{js,mjs,json,md,yml,yaml}\"",
+    "test:pgmq-integration": "node scripts/ci/verify-pgmq-exporter-query.mjs",
+    "test": "node --test \"scripts/**/*.test.mjs\""
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6",
+    "yaml": "^2.9.0"
+  },
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "homepage": "https://github.com/echovisionlab/geul-observability#readme",
+  "bugs": {
+    "url": "https://github.com/echovisionlab/geul-observability/issues"
+  }
+}

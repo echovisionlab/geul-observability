@@ -1,0 +1,68 @@
+name: geul-observability-core
+
+services:
+  loki-prod:
+    image: grafana/loki:3.4.2
+    container_name: geul-loki-prod
+    ports:
+      - '3100:3100'
+    volumes:
+      - ../infra/loki/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki_data_prod:/loki
+    environment:
+      GEUL_LOKI_APPLICATION_RETENTION_PERIOD: ${GEUL_LOKI_APPLICATION_RETENTION_PERIOD:-2160h}
+      GEUL_LOKI_DIAGNOSTIC_RETENTION_PERIOD: ${GEUL_LOKI_DIAGNOSTIC_RETENTION_PERIOD:-720h}
+      GEUL_LOKI_SYSTEM_RETENTION_PERIOD: ${GEUL_LOKI_SYSTEM_RETENTION_PERIOD:-2232h}
+    command:
+      - -config.file=/etc/loki/local-config.yaml
+      - -config.expand-env=true
+    restart: unless-stopped
+
+  tempo-prod:
+    image: grafana/tempo:2.7.1
+    container_name: geul-tempo-prod
+    ports:
+      - '3200:3200'
+    volumes:
+      - ../infra/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo_data_prod:/var/tempo
+    command: -config.file=/etc/tempo/tempo.yml
+    restart: unless-stopped
+
+  mimir-prod:
+    image: grafana/mimir:2.15.0
+    container_name: geul-mimir-prod
+    ports:
+      - '9009:9009'
+    volumes:
+      - ../infra/mimir/mimir.yml:/etc/mimir/mimir.yml:ro
+      - mimir_data_prod:/data
+    command: -config.file=/etc/mimir/mimir.yml
+    restart: unless-stopped
+
+  alloy-prod:
+    image: grafana/alloy:v1.8.1
+    container_name: geul-alloy-prod
+    ports:
+      - '4317:4317'
+      - '4318:4318'
+      - '12345:12345'
+    environment:
+      GEUL_POSTGRES_OBSERVER_DSN: ${GEUL_POSTGRES_OBSERVER_DSN:?set GEUL_POSTGRES_OBSERVER_DSN}
+    volumes:
+      - ../infra/alloy/config.prod.alloy:/etc/alloy/config.alloy:ro
+      - ../infra/alloy/postgres-queries.yml:/etc/alloy/postgres-queries.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data_prod:/var/lib/alloy/data
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    depends_on:
+      - loki-prod
+      - tempo-prod
+      - mimir-prod
+    restart: unless-stopped
+
+volumes:
+  alloy_data_prod:
+  loki_data_prod:
+  tempo_data_prod:
+  mimir_data_prod:

@@ -1,0 +1,54 @@
+apiVersion: 1
+
+datasources:
+  - name: Mimir
+    type: prometheus
+    uid: mimir
+    url: $GEUL_MIMIR_URL
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+
+  - name: Loki
+    type: loki
+    uid: loki
+    url: $GEUL_LOKI_URL
+    isDefault: false
+    jsonData:
+      derivedFields:
+        - datasourceUid: tempo
+          matcherRegex: '"trace_id"\s*:\s*"([0-9a-f]{32})"'
+          name: TraceID
+          url: '$${__value.raw}'
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    url: $GEUL_TEMPO_URL
+    isDefault: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        filterByTraceID: true
+        customQuery: true
+        query: '{service_namespace="geul", exporter="otlp", retention_class=~"application|diagnostic", service_name="$${__trace.rootServiceName}"} | json trace_id="body.trace_id" | trace_id = "$${__trace.traceId}"'
+      tracesToMetrics:
+        datasourceUid: mimir
+      lokiSearch:
+        datasourceUid: loki
+
+  - name: Durable Records
+    type: grafana-postgresql-datasource
+    uid: durable-records
+    url: $GEUL_POSTGRES_HOST
+    user: $GEUL_GRAFANA_POSTGRES_USER
+    isDefault: false
+    jsonData:
+      database: $GEUL_POSTGRES_DATABASE
+      sslmode: disable
+      postgresVersion: 1800
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: $GEUL_GRAFANA_POSTGRES_PASSWORD

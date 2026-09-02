@@ -1,0 +1,48 @@
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "docker_logs" {
+	targets = []
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/?geul-(api|cdn|editor-collab|og|web)-(dev|prod)"
+		action        = "drop"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/?(.*)"
+		replacement   = "$1"
+		target_label  = "container_name"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/?geul-(.*)-(dev|prod)"
+		replacement   = "geul-$1"
+		target_label  = "service_name"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		regex         = "(.+)"
+		replacement   = "geul-$1"
+		target_label  = "service_name"
+	}
+}
+
+loki.source.docker "containers" {
+	host          = "unix:///var/run/docker.sock"
+	targets       = discovery.docker.containers.targets
+	labels        = {"exporter" = "docker", "platform" = "docker", "host" = sys.env("GEUL_OBSERVABILITY_HOST"), "service_namespace" = "geul", "deployment_environment" = sys.env("GEUL_DEPLOYMENT_ENVIRONMENT"), "retention_class" = "system"}
+	relabel_rules = discovery.relabel.docker_logs.rules
+	forward_to    = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+	endpoint {
+		url = sys.env("GEUL_LOKI_WRITE_URL")
+	}
+}

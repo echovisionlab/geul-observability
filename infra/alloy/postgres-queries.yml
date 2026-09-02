@@ -1,0 +1,53 @@
+geul_pgmq_queue:
+  query: |
+    WITH queue_names AS (
+      SELECT queue_name
+      FROM pgmq.list_queues()
+    )
+    SELECT
+      queue_names.queue_name,
+      metrics.queue_visible_length AS visible_messages,
+      GREATEST(metrics.queue_length - metrics.queue_visible_length, 0) AS in_flight_messages,
+      COALESCE(metrics.oldest_msg_age_sec, 0) AS oldest_message_age_seconds,
+      COALESCE(archive_stats.n_live_tup, 0) AS archived_messages_estimate
+    FROM queue_names
+    CROSS JOIN LATERAL pgmq.metrics(queue_names.queue_name) AS metrics
+    LEFT JOIN pg_stat_user_tables AS archive_stats
+      ON archive_stats.schemaname = 'pgmq'
+      AND archive_stats.relname = 'a_' || queue_names.queue_name
+    ORDER BY queue_names.queue_name
+  metrics:
+    - queue_name:
+        usage: LABEL
+        description: PGMQ queue name.
+    - visible_messages:
+        usage: GAUGE
+        description: Messages whose visibility timeout has elapsed.
+    - in_flight_messages:
+        usage: GAUGE
+        description: Messages hidden by an active or delayed visibility timeout.
+    - oldest_message_age_seconds:
+        usage: GAUGE
+        description: Age in seconds of the oldest message still in the queue.
+    - archived_messages_estimate:
+        usage: GAUGE
+        description: Estimated live rows in the queue archive from PostgreSQL statistics.
+
+geul_public_asset_cleanup:
+  query: |
+    SELECT
+      count(*) FILTER (WHERE status = 'delete_pending') AS pending_assets,
+      COALESCE(
+        EXTRACT(EPOCH FROM (
+          CURRENT_TIMESTAMP - min(delete_requested_at) FILTER (WHERE status = 'delete_pending')
+        )),
+        0
+      ) AS oldest_pending_age_seconds
+    FROM public_asset
+  metrics:
+    - pending_assets:
+        usage: GAUGE
+        description: Public assets waiting for object deletion and Cloudflare prefix purge.
+    - oldest_pending_age_seconds:
+        usage: GAUGE
+        description: Age in seconds of the oldest public asset deletion waiting for completion.

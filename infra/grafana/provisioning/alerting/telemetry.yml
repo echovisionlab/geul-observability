@@ -1,0 +1,64 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: telemetry-pipeline
+    folder: Geul Operations
+    interval: 1m
+    rules:
+      - uid: geul-telemetry-pipeline-degraded
+        title: Telemetry pipeline degraded
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 60
+              to: 0
+            datasourceUid: loki
+            model:
+              datasource:
+                type: loki
+                uid: loki
+              editorMode: code
+              expr: 'sum(count_over_time({service_namespace="geul", deployment_environment="production", exporter="otlp", retention_class="application"} | json event="body.event" | event="telemetry.pipeline.degraded" [1m]))'
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: threshold
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: A service could not export canonical telemetry
+          description: Inspect the affected service and correlation fields in Service Overview, then verify Alloy and storage readiness.
+          runbook_url: /d/geul-service-overview/service-overview
+        labels:
+          domain: telemetry
+          notification_stage: disabled
+          severity: critical

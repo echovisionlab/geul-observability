@@ -1,0 +1,23 @@
+apiVersion: 1
+
+# Alert evaluation remains active. This child route suppresses delivery until an
+# operator-owned contact point and recipient are explicitly selected.
+muteTimes:
+  - orgId: 1
+    name: geul-alert-notifications-disabled
+    time_intervals:
+      - times:
+          - start_time: '00:00'
+            end_time: '24:00'
+        location: UTC
+
+policies:
+  - orgId: 1
+    receiver: grafana-default-email
+    group_by: [grafana_folder, alertname]
+    routes:
+      - receiver: grafana-default-email
+        object_matchers:
+          - [notification_stage, '=', disabled]
+        mute_time_intervals:
+          - geul-alert-notifications-disabled

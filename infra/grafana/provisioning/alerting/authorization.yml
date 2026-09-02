@@ -1,0 +1,236 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: authorization-boundary
+    folder: Geul Operations
+    interval: 1m
+    rules:
+      - uid: geul-authorization-commit-uncertain
+        title: Authorization database commit outcome uncertain
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: 'sum(increase(authorization_boundary_failure_total{failure="commit_uncertain"}[5m])) or vector(0)'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: threshold
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: PostgreSQL commit returned an uncertain result after a SpiceDB relationship write
+          description: Inspect the failed request and authoritative PostgreSQL and SpiceDB state. Do not apply a blind inverse relationship write.
+          runbook_url: /d/geul-authorization-operations/authorization-operations
+        labels:
+          domain: authorization
+          notification_stage: disabled
+          severity: critical
+      - uid: geul-authorization-rollback-compensation-failed
+        title: Authorization rollback compensation failed
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: 'sum(increase(authorization_boundary_failure_total{failure="rollback_compensation_failed"}[5m])) or vector(0)'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: threshold
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: SpiceDB inverse relationship write failed while closing a known PostgreSQL rollback path
+          description: Inspect the failed request and the exact authoritative PostgreSQL and SpiceDB states before applying an operator-reviewed repair.
+          runbook_url: /d/geul-authorization-operations/authorization-operations
+        labels:
+          domain: authorization
+          notification_stage: disabled
+          severity: critical
+      - uid: geul-authorization-write-outcome-uncertain
+        title: Authorization SpiceDB write outcome uncertain
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: 'sum(increase(authorization_spicedb_write_total{outcome="uncertain"}[5m])) or vector(0)'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: threshold
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: Bounded SpiceDB ambiguity retries ended without proving the final relationship state
+          description: Inspect the failed request and exact authoritative SpiceDB state before retrying or applying an operator-reviewed repair.
+          runbook_url: /d/geul-authorization-operations/authorization-operations
+        labels:
+          domain: authorization
+          notification_stage: disabled
+          severity: critical
+      - uid: geul-authorization-spicedb-to-database-commit-prolonged
+        title: Authorization SpiceDB-to-database commit interval prolonged
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: 'clamp_min(sum(increase(authorization_spicedb_to_database_commit_duration_seconds_count[5m])) - sum(increase(authorization_spicedb_to_database_commit_duration_seconds_bucket{le="5"}[5m])), 0) or vector(0)'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: threshold
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: A confirmed SpiceDB write remained outside the database commit boundary for more than five seconds
+          description: Inspect the affected API or File worker trace, PostgreSQL lock and commit health, and authoritative SpiceDB state.
+          runbook_url: /d/geul-authorization-operations/authorization-operations
+        labels:
+          domain: authorization
+          notification_stage: disabled
+          severity: critical

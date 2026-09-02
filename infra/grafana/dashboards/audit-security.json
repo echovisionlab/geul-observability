@@ -1,0 +1,738 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Human-oriented answers to who changed what, who viewed protected personal data, how sign-in ended, and who was denied access. Results use the allowlisted PostgreSQL view and are limited to the newest 500 matches.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Service Overview",
+      "type": "link",
+      "url": "/d/geul-service-overview/service-overview"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Authorization Operations",
+      "type": "link",
+      "url": "/d/geul-authorization-operations/authorization-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Queue Operations",
+      "type": "link",
+      "url": "/d/geul-queue-operations/queue-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Mail Delivery",
+      "type": "link",
+      "url": "/d/geul-mail-delivery/mail-delivery"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Translation Operations",
+      "type": "link",
+      "url": "/d/translation-operations/translation-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Ingress Security",
+      "type": "link",
+      "url": "/d/geul-ingress-security/ingress-security"
+    }
+  ],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "durable-records"
+      },
+      "description": "Durable Domain Audit records written in the selected time range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "durable-records"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*)::bigint AS \"Domain Audit\"\nFROM observability.durable_record\nWHERE $__timeFilter(occurred_at)\n  AND record_class = 'domain_audit';",
+          "refId": "A"
+        }
+      ],
+      "title": "Domain Audit",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "durable-records"
+      },
+      "description": "Admin reads of protected Member, campaign-recipient, or form-submission data in the selected time range. Routine viewer and internal projection reads are excluded by contract.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "durable-records"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*)::bigint AS \"Personal data reads\"\nFROM observability.durable_record\nWHERE $__timeFilter(occurred_at)\n  AND record_class = 'security_access'\n  AND action = 'personal_data.accessed';",
+          "refId": "A"
+        }
+      ],
+      "title": "Personal Data Reads",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "durable-records"
+      },
+      "description": "Authentication attempts that reached a durable failed outcome in the selected time range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "durable-records"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*)::bigint AS \"Authentication failures\"\nFROM observability.durable_record\nWHERE $__timeFilter(occurred_at)\n  AND record_class = 'security_access'\n  AND action = 'authentication.failed';",
+          "refId": "A"
+        }
+      ],
+      "title": "Authentication Failures",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "durable-records"
+      },
+      "description": "Authorization attempts denied before protected state or data was returned.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "durable-records"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*)::bigint AS \"Authorization denied\"\nFROM observability.durable_record\nWHERE $__timeFilter(occurred_at)\n  AND record_class = 'security_access'\n  AND action = 'authorization.denied';",
+          "refId": "A"
+        }
+      ],
+      "title": "Authorization Denied",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "durable-records"
+      },
+      "description": "Newest 500 matches for the human-oriented Show, Activity, Actor, Object, reason, and correlation filters. Member email is projected live and may be absent after its retention period.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Request ID"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": false,
+                    "title": "Open request logs",
+                    "url": "/d/geul-service-overview/service-overview?from=${__from}&to=${__to}&var-request_id=${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Trace ID"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": false,
+                    "title": "Open trace logs",
+                    "url": "/d/geul-service-overview/service-overview?from=${__from}&to=${__to}&var-trace_id=${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 18,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "id": 5,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true,
+        "showColumnFilters": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Time"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "durable-records"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  occurred_at AS \"Time\",\n  CASE action\n    WHEN 'authentication.succeeded' THEN 'Signed in'\n    WHEN 'authentication.failed' THEN 'Sign-in failed'\n    WHEN 'authentication.blocked' THEN 'Sign-in blocked'\n    WHEN 'authorization.denied' THEN 'Access denied'\n    WHEN 'personal_data.accessed' THEN 'Viewed personal data'\n    ELSE initcap(replace(replace(action, '.', ' '), '_', ' '))\n  END AS \"Activity\",\n  action AS \"Exact action\",\n  CASE\n    WHEN actor_kind = 'member' THEN COALESCE(actor_email, actor_member_id::text)\n    WHEN actor_kind = 'system' THEN actor_service\n    ELSE 'anonymous'\n  END AS \"Actor\",\n  COALESCE(target_type, subject_type) AS \"Object type\",\n  COALESCE(target_id, subject_id) AS \"Object ID\",\n  changed_fields::text AS \"Changed fields\",\n  collection_operation AS \"Collection operation\",\n  previous_state AS \"Previous state\",\n  new_state AS \"New state\",\n  authentication_method AS \"Authentication method\",\n  principal_state AS \"Principal state\",\n  provider AS \"Provider\",\n  reason AS \"Reason\",\n  data_category AS \"Data category\",\n  source_ip::text AS \"Source IP\",\n  request_id::text AS \"Request ID\",\n  trace_id AS \"Trace ID\",\n  attributes::text AS \"Technical details\",\n  record_id::text AS \"Record ID\"\nFROM observability.durable_record\nWHERE $__timeFilter(occurred_at)\n  AND record_class IN (${record_class:sqlstring})\n  AND (${action:sqlstring} = '__all__' OR action = ${action:sqlstring})\n  AND (\n    ${email:sqlstring} = ''\n    OR actor_email = lower(${email:sqlstring})\n    OR actor_member_id::text = ${email:sqlstring}\n    OR actor_service = ${email:sqlstring}\n  )\n  AND (\n    ${target_type:sqlstring} = ''\n    OR target_type = ${target_type:sqlstring}\n    OR subject_type = ${target_type:sqlstring}\n  )\n  AND (\n    ${target_id:sqlstring} = ''\n    OR target_id = ${target_id:sqlstring}\n    OR subject_id = ${target_id:sqlstring}\n  )\n  AND (${reason:sqlstring} = '' OR reason = ${reason:sqlstring})\n  AND (${source_ip:sqlstring} = '' OR source_ip::text = ${source_ip:sqlstring})\n  AND (${request_id:sqlstring} = '' OR request_id::text = ${request_id:sqlstring})\n  AND (${trace_id:sqlstring} = '' OR trace_id = ${trace_id:sqlstring})\n  AND (${changed_field:sqlstring} = '' OR changed_fields @> jsonb_build_array(${changed_field:sqlstring}::text))\nORDER BY occurred_at DESC, record_id DESC\nLIMIT 500;",
+          "refId": "A"
+        }
+      ],
+      "title": "Investigation Results",
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["geul", "audit", "security"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": ["Changes", "Security & privacy"],
+          "value": ["domain_audit", "security_access"]
+        },
+        "includeAll": false,
+        "label": "Show",
+        "multi": true,
+        "name": "record_class",
+        "query": "Changes : domain_audit,Security & privacy : security_access",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": ["anonymous", "member", "system"],
+          "value": ["anonymous", "member", "system"]
+        },
+        "includeAll": false,
+        "hide": 2,
+        "label": "Actor kind",
+        "multi": true,
+        "name": "actor_kind",
+        "query": "anonymous,member,system",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All activity",
+          "value": "__all__"
+        },
+        "includeAll": false,
+        "label": "Activity",
+        "name": "action",
+        "query": "All activity : __all__,Signed in : authentication.succeeded,Sign-in failed : authentication.failed,Sign-in blocked : authentication.blocked,Access denied : authorization.denied,Personal data viewed : personal_data.accessed",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "label": "Actor email, ID, or service",
+        "name": "email",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Actor member ID",
+        "name": "actor_member_id",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Contributor member ID",
+        "name": "contributor_member_id",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "label": "Object type",
+        "name": "target_type",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "label": "Object ID",
+        "name": "target_id",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Subject type",
+        "name": "subject_type",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Subject ID",
+        "name": "subject_id",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Data category",
+        "name": "data_category",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Flow kind",
+        "name": "flow_kind",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Authentication method",
+        "name": "authentication_method",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Principal state",
+        "name": "principal_state",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Provider",
+        "name": "provider",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "label": "Reason",
+        "name": "reason",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "label": "Source IP",
+        "name": "source_ip",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "label": "Request ID",
+        "name": "request_id",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "label": "Trace ID",
+        "name": "trace_id",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "label": "Changed field",
+        "name": "changed_field",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Collection operation",
+        "name": "collection_operation",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "Previous state",
+        "name": "previous_state",
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "label": "New state",
+        "name": "new_state",
+        "query": "",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Audit & Security",
+  "uid": "geul-audit-security",
+  "version": 1,
+  "weekStart": ""
+}

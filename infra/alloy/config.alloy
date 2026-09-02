@@ -1,0 +1,182 @@
+// =============================================================================
+// Alloy Pipeline Configuration
+// =============================================================================
+// Receives OTLP signals from services and routes to Loki/Tempo/Mimir.
+
+// OTLP receiver (services push telemetry here)
+otelcol.receiver.otlp "default" {
+	grpc {
+		endpoint = "0.0.0.0:4317"
+	}
+
+	http {
+		endpoint = "0.0.0.0:4318"
+	}
+
+	output {
+		logs    = [otelcol.processor.transform.canonical_logs.input]
+		traces  = [otelcol.processor.transform.kratos_trace_sanitizer.input]
+		metrics = [otelcol.exporter.otlphttp.mimir.input]
+	}
+}
+
+// Kratos native authentication events are useful trace evidence, but their
+// vendor attributes include identity, session, flow, IP, and raw error values.
+// Keep only the bounded operational fields owned by LOG_SYSTEM_INVENTORY.md.
+otelcol.processor.transform "kratos_trace_sanitizer" {
+	error_mode = "propagate"
+
+	trace_statements {
+		context    = "span"
+		statements = [
+			`keep_keys(span.attributes, ["http.request.method", "http.response.status_code", "http.route", "http.method", "http.status_code"]) where resource.attributes["service.name"] == "geul-kratos"`,
+		]
+	}
+
+	trace_statements {
+		context    = "spanevent"
+		statements = [
+			`keep_keys(spanevent.attributes, ["SelfServiceFlowType", "SelfServiceMethodUsed", "LoginRequestedAAL", "LoginRequestedPrivilegedSession", "SelfServiceSSOProviderUsed"]) where resource.attributes["service.name"] == "geul-kratos" and IsMatch(spanevent.name, "^(Login|Registration|Session)")`,
+			`keep_keys(spanevent.attributes, []) where resource.attributes["service.name"] == "geul-kratos" and not IsMatch(spanevent.name, "^(Login|Registration|Session)")`,
+		]
+	}
+
+	output {
+		traces = [otelcol.exporter.otlp.tempo.input]
+	}
+}
+
+otelcol.processor.transform "canonical_logs" {
+	error_mode = "ignore"
+
+	log_statements {
+		context    = "resource"
+		statements = [
+			`set(attributes["service.namespace"], "geul")`,
+			`set(attributes["deployment.environment"], "development")`,
+		]
+	}
+
+	log_statements {
+		context    = "log"
+		statements = [
+			`set(log.attributes["retention_class"], "application") where log.attributes["event"] != nil and log.attributes["outcome"] != nil`,
+			`set(log.attributes["retention_class"], "diagnostic") where log.attributes["event"] == nil or log.attributes["outcome"] == nil`,
+			`set(log.attributes["message"], log.body)`,
+			`set(log.attributes["level"], log.severity_text)`,
+			`set(log.body, log.attributes)`,
+		]
+	}
+
+	output {
+		logs = [otelcol.processor.attributes.loki_labels.input]
+	}
+}
+
+otelcol.processor.attributes "loki_labels" {
+	action {
+		key    = "exporter"
+		action = "upsert"
+		value  = "otlp"
+	}
+
+	action {
+		key    = "loki.resource.labels"
+		action = "upsert"
+		value  = "service.name,service.namespace,deployment.environment"
+	}
+
+	action {
+		key    = "loki.attribute.labels"
+		action = "upsert"
+		value  = "domain,outcome,retention_class,exporter"
+	}
+
+	output {
+		logs = [otelcol.processor.batch.logs.input]
+	}
+}
+
+otelcol.processor.batch "logs" {
+	output {
+		logs = [otelcol.exporter.loki.default.input]
+	}
+}
+
+// Loki exporter (logs)
+otelcol.exporter.loki "default" {
+	forward_to = [loki.write.default.receiver]
+}
+
+// Docker stdout logs (non-OTLP services)
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+
+	filter {
+		name   = "name"
+		values = [
+			"geul-kratos-dev",
+			"geul-kratos-prod",
+			"geul-kratos-courier-dev",
+			"geul-kratos-courier-prod",
+		]
+	}
+}
+
+discovery.relabel "docker_logs" {
+	targets = []
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/?(.*)"
+		replacement   = "$1"
+		target_label  = "container_name"
+	}
+
+	// Use container name as a stable service-like label for dashboard filtering.
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/?geul-(.*)-(dev|prod)"
+		replacement   = "geul-$1"
+		target_label  = "service_name"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		regex         = "(.+)"
+		replacement   = "geul-$1"
+		target_label  = "service_name"
+	}
+}
+
+loki.source.docker "containers" {
+	host          = "unix:///var/run/docker.sock"
+	targets       = discovery.docker.containers.targets
+	labels        = {"exporter" = "docker", "platform" = "docker", "service_namespace" = "geul", "deployment_environment" = "development", "retention_class" = "system"}
+	relabel_rules = discovery.relabel.docker_logs.rules
+	forward_to    = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki-dev:3100/loki/api/v1/push"
+	}
+}
+
+// Tempo exporter (traces)
+otelcol.exporter.otlp "tempo" {
+	client {
+		endpoint = "tempo-dev:4317"
+
+		tls {
+			insecure = true
+		}
+	}
+}
+
+// Mimir exporter (metrics)
+otelcol.exporter.otlphttp "mimir" {
+	client {
+		endpoint = "http://mimir-dev:9009/otlp"
+	}
+}

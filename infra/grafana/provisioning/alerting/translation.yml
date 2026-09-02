@@ -1,0 +1,179 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: translation-terminal-failures
+    folder: Geul Operations
+    interval: 1m
+    rules:
+      - uid: geul-translation-job-failed
+        title: Translation job failed
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              datasource:
+                type: loki
+                uid: loki
+              editorMode: code
+              expr: 'sum by (entity_type, target_locale, reason) (count_over_time({service_namespace="geul", deployment_environment="production", exporter="otlp", retention_class="application", domain="translation"} | json event="body.event", job_id="body.job_id", entity_type="body.entity_type", target_locale="body.target_locale", duration_ms="body.duration_ms", reason="body.reason" | event="translation.job.failed" | reason=~`provider_configuration|provider_authentication|provider_rate_limited|provider_unavailable|provider_rejected|provider_response_invalid|source_no_longer_current|target_apply_failed|internal` [5m]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: threshold
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: A non-handoff Translation job failure reached authoritative terminal status
+          description: Inspect the bounded non-handoff failure reason and the correlated provider generate, upload, poll, or download trace. og_handoff_failed is owned by the dedicated handoff alert. Do not inspect or expose XLIFF, source or target text, provider document handles, response bodies, or raw errors.
+          runbook_url: /d/translation-operations/translation-operations
+        labels:
+          domain: translation
+          notification_stage: disabled
+          severity: critical
+      - uid: geul-translation-og-handoff-failed
+        title: Translation to OG handoff failed
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: mimir
+            model:
+              datasource:
+                type: prometheus
+                uid: mimir
+              editorMode: code
+              expr: 'sum by (entity_type, target_locale) (increase(translation_og_handoff_total{outcome="failed"}[5m])) or vector(0)'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: threshold
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: A Translation publication failed to commit its OG request handoff
+          description: Inspect the correlated Translation trace and og_handoff_failed terminal job. This signal contains only entity type, target locale, and bounded outcome; it carries no IDs and is not an OG retry signal.
+          runbook_url: /d/translation-operations/translation-operations
+        labels:
+          domain: translation
+          notification_stage: disabled
+          severity: critical
+      - uid: geul-og-generation-failed
+        title: OG generation failed
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              datasource:
+                type: loki
+                uid: loki
+              editorMode: code
+              expr: 'sum by (reason) (count_over_time({service_namespace="geul", deployment_environment="production", exporter="otlp", retention_class="application", service_name="geul-og"} | json event="body.event", job_kind="body.job_kind", reason="body.reason" | event="job.failed" | job_kind="og_generation" | reason=~`invalid_claim|source_rejected|processing_failed|integrity_failed|completion_rejected` [5m]))'
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: instant
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: B
+              type: threshold
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations:
+          summary: An OG generation reached authoritative failed status
+          description: Inspect the bounded OG failure reason and trace. Queue requeue or same-generation completion-uncertainty resume is not a product retry or terminal failure.
+          runbook_url: /d/translation-operations/translation-operations
+        labels:
+          domain: og
+          notification_stage: disabled
+          severity: critical

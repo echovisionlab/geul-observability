@@ -1,0 +1,849 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "description": "Source-only explicit-generation operations: authoritative stale and missing state, Admin regenerate/retry/cancel actions, committed command enqueue, bounded job failures, Translation-to-OG handoff outcomes, and authoritative OG terminal outcomes. Source edits and Version restores only make targets stale; they never generate automatically.",
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Service Overview",
+      "type": "link",
+      "url": "/d/geul-service-overview/service-overview"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Authorization Operations",
+      "type": "link",
+      "url": "/d/geul-authorization-operations/authorization-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Queue Operations",
+      "type": "link",
+      "url": "/d/geul-queue-operations/queue-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Mail Delivery",
+      "type": "link",
+      "url": "/d/geul-mail-delivery/mail-delivery"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Audit & Security",
+      "type": "link",
+      "url": "/d/geul-audit-security/audit-security"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Version Restore Audit",
+      "type": "link",
+      "url": "/d/geul-audit-security/audit-security?var-changed_field=version_restore"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Ingress Security",
+      "type": "link",
+      "url": "/d/geul-ingress-security/ingress-security"
+    }
+  ],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "description": "Translation PGMQ commands committed in the selected range, including an explicit same-job retry requeue. Use the Admin action panel to distinguish product retry; queue commit-uncertainty resume remains Queue Operations telemetry.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "round(sum(increase(translation_jobs_queued_total{entity_type=~\"${entity_type:regex}\", target_locale=~\"${target_locale:regex}\"}[$__range]))) or vector(0)",
+          "instant": true,
+          "legendFormat": "queued"
+        }
+      ],
+      "title": "Translation Commands Queued",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Typed applied terminal outcomes recorded in the selected range. A retry of the same job is a separate execution outcome.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", domain=\"translation\"} | json event=\"body.event\", job_id=\"body.job_id\", entity_type=\"body.entity_type\", target_locale=\"body.target_locale\", duration_ms=\"body.duration_ms\", reason=\"body.reason\" | event=\"translation.job.applied\" | entity_type=~`${entity_type:regex}` | target_locale=~`${target_locale:regex}` [$__range])) or vector(0)",
+          "instant": true,
+          "legendFormat": "applied"
+        }
+      ],
+      "title": "Applied Outcomes",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Typed failed terminal outcomes recorded in the selected range. A retry of the same job is a separate execution outcome.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", domain=\"translation\"} | json event=\"body.event\", job_id=\"body.job_id\", entity_type=\"body.entity_type\", target_locale=\"body.target_locale\", duration_ms=\"body.duration_ms\", reason=\"body.reason\" | event=\"translation.job.failed\" | entity_type=~`${entity_type:regex}` | target_locale=~`${target_locale:regex}` | reason=~`${failure_reason:regex}` [$__range])) or vector(0)",
+          "instant": true,
+          "legendFormat": "failed"
+        }
+      ],
+      "title": "Failed Outcomes",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Typed applied terminal events divided by typed applied plus failed terminal events in the selected range. Zero with no terminal events means no recorded terminal outcome.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", domain=\"translation\"} | json event=\"body.event\", job_id=\"body.job_id\", entity_type=\"body.entity_type\", target_locale=\"body.target_locale\", duration_ms=\"body.duration_ms\", reason=\"body.reason\" | event=\"translation.job.applied\" | entity_type=~`${entity_type:regex}` | target_locale=~`${target_locale:regex}` [$__range])) / clamp_min(sum(count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", domain=\"translation\"} | json event=\"body.event\", job_id=\"body.job_id\", entity_type=\"body.entity_type\", target_locale=\"body.target_locale\", duration_ms=\"body.duration_ms\", reason=\"body.reason\" | event=~`translation[.]job[.](applied|failed)` | entity_type=~`${entity_type:regex}` | target_locale=~`${target_locale:regex}` [$__range])), 1)",
+          "instant": true,
+          "legendFormat": "apply ratio"
+        }
+      ],
+      "title": "Apply Ratio",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "durable-records"
+      },
+      "description": "Current stale target entries and absent entries for the selected catalog locale, excluding each owning source locale. Missing can be intentional and is informational only: it is not required locale coverage, a failure, or an alert condition.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "id": 16,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "durable-records"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH translation_entries(entity_type, entity_id, locale, status) AS (\n  SELECT 'post', entity_id::text, locale, status FROM post_translation\n  UNION ALL SELECT 'page', entity_id::text, locale, status FROM page_translation\n  UNION ALL SELECT 'work', entity_id::text, locale, status FROM work_translation\n  UNION ALL SELECT 'program_event', entity_id::text, locale, status FROM program_event_translation\n  UNION ALL SELECT 'release', entity_id::text, locale, status FROM release_translation\n  UNION ALL SELECT 'artist', entity_id::text, locale, status FROM artist_translation\n  UNION ALL SELECT 'label', entity_id::text, locale, status FROM label_translation\n  UNION ALL SELECT 'menu', entity_id::text, locale, status FROM menu_translation\n  UNION ALL SELECT 'email_template', entity_id::text, locale, status FROM email_template_translation\n  UNION ALL SELECT 'email_layout', entity_id::text, locale, status FROM email_layout_translation\n  UNION ALL SELECT 'campaign', entity_id::text, locale, status FROM campaign_translation\n  UNION ALL SELECT 'form', entity_id::text, locale, status FROM form_translation\n  UNION ALL SELECT 'privacy', entity_id::text, locale, status FROM privacy_translation\n  UNION ALL SELECT 'terms', entity_id::text, locale, status FROM terms_translation\n  UNION ALL SELECT 'series', entity_id::text, locale, status FROM series_translation\n), stale_counts AS (\n  SELECT entry.entity_type, COUNT(*) AS stale_entries\n  FROM translation_entries entry\n  JOIN translation_source_state source\n    ON source.entity_type = entry.entity_type\n   AND source.entity_id::text = entry.entity_id\n  WHERE entry.locale <> source.source_locale\n    AND entry.status = 'stale'\n    AND entry.entity_type IN (${entity_type:sqlstring})\n    AND entry.locale IN (${target_locale:sqlstring})\n  GROUP BY entry.entity_type\n), missing_counts AS (\n  SELECT source.entity_type, COUNT(*) AS missing_entries\n  FROM translation_source_state source\n  JOIN translation_locale locale\n    ON locale.code <> source.source_locale\n   AND locale.code IN (${target_locale:sqlstring})\n  WHERE source.entity_type IN (${entity_type:sqlstring})\n    AND NOT EXISTS (\n      SELECT 1\n      FROM translation_entries entry\n      WHERE entry.entity_type = source.entity_type\n        AND entry.entity_id = source.entity_id\n        AND entry.locale = locale.code\n    )\n  GROUP BY source.entity_type\n), entity_types AS (\n  SELECT entity_type FROM stale_counts\n  UNION\n  SELECT entity_type FROM missing_counts\n)\nSELECT entity_types.entity_type AS \"Entity type\",\n       COALESCE(stale_counts.stale_entries, 0) AS \"Stale entries\",\n       COALESCE(missing_counts.missing_entries, 0) AS \"Missing entries (informational)\"\nFROM entity_types\nLEFT JOIN stale_counts USING (entity_type)\nLEFT JOIN missing_counts USING (entity_type)\nORDER BY \"Stale entries\" DESC, \"Missing entries (informational)\" DESC, entity_types.entity_type ASC;",
+          "refId": "A"
+        }
+      ],
+      "title": "Stale Backlog / Missing State",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 3,
+      "description": "Translation jobs queued per second by target locale.",
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Queued Jobs by Locale",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (target_locale) (rate(translation_jobs_queued_total{entity_type=~\"${entity_type:regex}\", target_locale=~\"${target_locale:regex}\"}[$__rate_interval]))",
+          "legendFormat": "{{target_locale}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 4,
+      "description": "Authoritative running and terminal Translation job transitions. Cancelled and superseded are outcomes, not failures.",
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Job Status Transitions",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(translation_job_status_total{entity_type=~\"${entity_type:regex}\", target_locale=~\"${target_locale:regex}\"}[$__rate_interval]))",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 5,
+      "description": "Typed failed Translation terminal events grouped by the shared ten-value failure catalog, including og_handoff_failed. Raw provider errors, bodies, XLIFF, text, and document handles are never labels.",
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Failed Jobs",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (reason) (count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", domain=\"translation\"} | json event=\"body.event\", job_id=\"body.job_id\", entity_type=\"body.entity_type\", target_locale=\"body.target_locale\", duration_ms=\"body.duration_ms\", reason=\"body.reason\" | event=\"translation.job.failed\" | entity_type=~`${entity_type:regex}` | target_locale=~`${target_locale:regex}` | reason=~`${failure_reason:regex}` [$__rate_interval]))",
+          "legendFormat": "{{reason}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "id": 6,
+      "description": "p95 end-to-end duration by authoritative terminal status: published, failed, cancelled, or superseded.",
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Job Duration (p95)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, status) (rate(translation_job_duration_seconds_bucket{entity_type=~\"${entity_type:regex}\", target_locale=~\"${target_locale:regex}\"}[$__rate_interval])))",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "id": 7,
+      "description": "Typed applied-to-terminal event ratio. Empty data means there were no matching terminal events.",
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Apply Success Ratio",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", domain=\"translation\"} | json event=\"body.event\", job_id=\"body.job_id\", entity_type=\"body.entity_type\", target_locale=\"body.target_locale\", duration_ms=\"body.duration_ms\", reason=\"body.reason\" | event=\"translation.job.applied\" | entity_type=~`${entity_type:regex}` | target_locale=~`${target_locale:regex}` [$__rate_interval])) / clamp_min(sum(count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", domain=\"translation\"} | json event=\"body.event\", job_id=\"body.job_id\", entity_type=\"body.entity_type\", target_locale=\"body.target_locale\", duration_ms=\"body.duration_ms\", reason=\"body.reason\" | event=~`translation[.]job[.](applied|failed)` | entity_type=~`${entity_type:regex}` | target_locale=~`${target_locale:regex}` [$__rate_interval])), 1)",
+          "legendFormat": "applied / (applied + failed)"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "description": "Explicit Admin operations by bounded action and outcome. Succeeded retry means the existing Translation job ID was requeued; it is not a new job. OG Admin regeneration creates a new generation and has no dedicated producer signal yet.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Explicit Admin Actions",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (action, outcome) (rate(translation_admin_action_total{action=~\"${admin_action:regex}\"}[$__rate_interval]))",
+          "legendFormat": "{{action}} / {{outcome}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "description": "Rate of the exact Translation provider client spans by operation and OpenTelemetry status. Provider handles, keys, XLIFF, bodies, and raw errors are excluded from span names and attributes.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Provider Upload / Poll / Download Spans",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (span_name, status_code) (rate(traces_spanmetrics_calls_total{service=\"geul-api\", span_kind=\"SPAN_KIND_CLIENT\", span_name=~\"translation[.]provider[.](upload|poll|download)\"}[$__rate_interval]))",
+          "legendFormat": "{{span_name}} / {{status_code}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Authoritative OG terminal outcomes from the OG service. This existing signal has no locale label, so it proves OG completion and bounded failure without inventing a Translation-localized correlation.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "OG Terminal Outcomes",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (event) (rate({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", service_name=\"geul-og\"} | json event=\"body.event\", job_kind=\"body.job_kind\" | event=~`job\\.(succeeded|failed)` | job_kind=\"og_generation\" [$__rate_interval]))",
+          "legendFormat": "{{event}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Authoritative OG job.failed records grouped only by the bounded OG failure catalog. Queue retry and requeue records are intentionally excluded from product failure.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "OG Terminal Failures",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (reason) (rate({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", service_name=\"geul-og\"} | json event=\"body.event\", job_kind=\"body.job_kind\", reason=\"body.reason\" | event=\"job.failed\" | job_kind=\"og_generation\" | reason=~`invalid_claim|source_rejected|processing_failed|integrity_failed|completion_rejected` [$__rate_interval]))",
+          "legendFormat": "{{reason}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "description": "Translation publication-to-OG request handoff outcomes at the owning transaction boundary. committed means the OG request was durably committed; failed terminalizes the Translation job as og_handoff_failed. IDs are intentionally absent.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "ops"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 44
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Translation to OG Handoff",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(translation_og_handoff_total{entity_type=~\"${entity_type:regex}\", target_locale=~\"${target_locale:regex}\"}[$__rate_interval]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["geul", "translation"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "durable-records"
+        },
+        "definition": "SELECT DISTINCT entity_type AS __text, entity_type AS __value FROM translation_source_state ORDER BY entity_type",
+        "includeAll": true,
+        "multi": true,
+        "label": "Entity type",
+        "name": "entity_type",
+        "query": "SELECT DISTINCT entity_type AS __text, entity_type AS __value FROM translation_source_state ORDER BY entity_type",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "durable-records"
+        },
+        "definition": "SELECT code AS __text, code AS __value FROM translation_locale ORDER BY sort_order, code",
+        "includeAll": true,
+        "multi": true,
+        "label": "Target locale",
+        "name": "target_locale",
+        "query": "SELECT code AS __text, code AS __value FROM translation_locale ORDER BY sort_order, code",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "allValue": "provider_configuration|provider_authentication|provider_rate_limited|provider_unavailable|provider_rejected|provider_response_invalid|source_no_longer_current|target_apply_failed|og_handoff_failed|internal",
+        "includeAll": true,
+        "multi": true,
+        "label": "Failure reason",
+        "name": "failure_reason",
+        "query": "provider_configuration,provider_authentication,provider_rate_limited,provider_unavailable,provider_rejected,provider_response_invalid,source_no_longer_current,target_apply_failed,og_handoff_failed,internal",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "allValue": "regenerate_locale|regenerate_all|retry|cancel",
+        "includeAll": true,
+        "multi": true,
+        "label": "Admin action",
+        "name": "admin_action",
+        "query": "regenerate_locale,regenerate_all,retry,cancel",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "allValue": "production|staging|development",
+        "includeAll": true,
+        "multi": true,
+        "label": "Log environment",
+        "name": "environment",
+        "query": "production,staging,development",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Translation Operations",
+  "uid": "translation-operations",
+  "version": 2,
+  "weekStart": ""
+}

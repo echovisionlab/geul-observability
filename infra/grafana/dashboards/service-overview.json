@@ -1,0 +1,904 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "description": "Geul operational entry point. Use metrics to identify an affected service, then narrow owned application logs by environment, service, domain, outcome, event, or correlation ID. Vendor and one-shot container logs are kept separate.",
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Mail Delivery",
+      "type": "link",
+      "url": "/d/geul-mail-delivery/mail-delivery"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Translation Operations",
+      "type": "link",
+      "url": "/d/translation-operations/translation-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Queue Operations",
+      "type": "link",
+      "url": "/d/geul-queue-operations/queue-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Authorization Operations",
+      "type": "link",
+      "url": "/d/geul-authorization-operations/authorization-operations"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Audit & Security",
+      "type": "link",
+      "url": "/d/geul-audit-security/audit-security"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": true,
+      "targetBlank": false,
+      "title": "Ingress Security",
+      "type": "link",
+      "url": "/d/geul-ingress-security/ingress-security"
+    }
+  ],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "description": "Current aggregate server request rate for the selected metric services.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(traces_spanmetrics_calls_total{service=~\"${service:regex}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) or vector(0)",
+          "instant": true,
+          "legendFormat": "requests"
+        }
+      ],
+      "title": "Request Rate Now",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Terminal request records with HTTP 4xx in the selected range. These are client rejections or missing resources, not server outages.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", service_name=~\"${application_service:regex}\", domain=\"request\"} | json event=\"body.event\", status_code=\"body.status_code\" | event=\"request.completed\" | status_code=~`4..` [$__range])) or vector(0)",
+          "instant": true,
+          "legendFormat": "4xx"
+        }
+      ],
+      "title": "Client Rejections in Range",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "description": "Current aggregate p95 server latency for the selected metric services. This is an observation, not an SLO threshold.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(traces_spanmetrics_latency_bucket{service=~\"${service:regex}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le))",
+          "instant": true,
+          "legendFormat": "p95"
+        }
+      ],
+      "title": "Request Latency p95 Now",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Terminal request records with HTTP 5xx in the selected range. This is the server-failure signal; 4xx client rejections are counted separately.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 15,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", service_name=~\"${application_service:regex}\", domain=\"request\"} | json event=\"body.event\", status_code=\"body.status_code\" | event=\"request.completed\" | status_code=~`5..` [$__range])) or vector(0)",
+          "instant": true,
+          "legendFormat": "5xx"
+        }
+      ],
+      "title": "Server Failures in Range",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "id": 1,
+      "description": "Trace-derived p95 server latency by service. This is a trend view, not an SLO threshold.",
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Request Latency (p95)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(traces_spanmetrics_latency_bucket{service=~\"${service:regex}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (le, service))",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "mimir"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "id": 2,
+      "description": "Trace-derived server request rate by service.",
+      "options": {
+        "legend": {
+          "calcs": ["mean"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Request Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(traces_spanmetrics_calls_total{service=~\"${service:regex}\", span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])) by (service)",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 3,
+      "description": "Canonical terminal request rate with HTTP 5xx by application service. HTTP 4xx is excluded.",
+      "options": {
+        "legend": {
+          "calcs": ["mean"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Server Failure Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (service_name) (rate({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", service_name=~\"${application_service:regex}\", domain=\"request\"} | json event=\"body.event\", status_code=\"body.status_code\" | event=\"request.completed\" | status_code=~`5..` [$__auto]))",
+          "legendFormat": "{{service_name}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 4,
+      "description": "Canonical terminal request rate with HTTP 4xx by application service. Use this to distinguish expected rejection or missing-resource traffic from server failure.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "reqps"
+        }
+      },
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "title": "Client Rejection Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by (service_name) (rate({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", service_name=~\"${application_service:regex}\", domain=\"request\"} | json event=\"body.event\", status_code=\"body.status_code\" | event=\"request.completed\" | status_code=~`4..` [$__auto]))",
+          "legendFormat": "{{service_name}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 5,
+      "description": "Canonical terminal HTTP and RPC request results. Filter by the projected Member actor, request ID, or trace ID when investigating a known request.",
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "title": "Request Access Logs",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", service_name=~\"${application_service:regex}\", domain=\"request\"} | json event=\"body.event\", actor_member_id=\"body.actor_member_id\", request_id=\"body.request_id\", trace_id=\"body.trace_id\", status_code=\"body.status_code\", duration_ms=\"body.duration_ms\", http_method=\"body.http_method\", http_route=\"body.http_route\", rpc_service=\"body.rpc_service\", rpc_method=\"body.rpc_method\" | event=\"request.completed\" | actor_member_id=~`${actor_member_id:raw}` | request_id=~`${request_id:raw}` | trace_id=~`${trace_id:raw}` | level=~\"${log_level:regex}\" | line_format \"{{.status_code}} {{.http_method}} {{.http_route}}{{.rpc_service}}/{{.rpc_method}} — {{.duration_ms}}ms\"",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "id": 6,
+      "description": "Canonical owned-service logs. Use correlation regex fields to isolate one trace, command, or message lifecycle.",
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "title": "Application Logs",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=~\"application|diagnostic\", service_name=~\"${application_service:regex}\", domain=~\"${domain:regex}\", outcome=~\"${outcome:regex}\"} | json event=\"body.event\", request_id=\"body.request_id\", trace_id=\"body.trace_id\", message_id=\"body.message_id\", command_id=\"body.command_id\", correlation_id=\"body.correlation_id\", message=\"body.message\" | event=~`${event:raw}` | level=~\"${log_level:regex}\" | request_id=~`${request_id:raw}` | trace_id=~`${trace_id:raw}` | message_id=~`${message_id:raw}` | command_id=~`${command_id:raw}` | correlation_id=~`${correlation_id:raw}` | line_format \"{{.event}} — {{.message}}\"",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Most frequent canonical application events in the selected range. Narrow the service, domain, outcome, event, or level filters before expanding the time range.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "id": 10,
+      "options": {
+        "showHeader": true
+      },
+      "title": "Top Application Events",
+      "type": "table",
+      "targets": [
+        {
+          "expr": "topk(20, sum by (service_name, domain, event, outcome) (count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", service_name=~\"${application_service:regex}\", domain=~\"${domain:regex}\", outcome=~\"${outcome:regex}\"} | json event=\"body.event\" | event=~`${event:raw}` | level=~\"${log_level:regex}\" [$__range])))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{service_name}} {{event}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Most frequent failed events with HTTP status, bounded reason, and error type. Request 4xx remains visible here but is separated from 5xx in the summary panels.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "id": 11,
+      "options": {
+        "showHeader": true
+      },
+      "title": "Top Failed Events",
+      "type": "table",
+      "targets": [
+        {
+          "expr": "topk(20, sum by (service_name, domain, event, status_code, reason, error_code) (count_over_time({service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=\"application\", service_name=~\"${application_service:regex}\", domain=~\"${domain:regex}\", outcome=\"failed\"} | json event=\"body.event\", status_code=\"body.status_code\", reason=\"body.reason\", error_code=\"body.error_code\" | event=~`${event:raw}` [$__range])))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{service_name}} {{event}}"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "id": 7,
+      "description": "Owned-service warnings and errors. Expand a row to inspect canonical fields and open TraceID when present.",
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "title": "Error & Warn Logs",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=\"otlp\", retention_class=~\"application|diagnostic\", service_name=~\"${application_service:regex}\", domain=~\"${domain:regex}\"} | json event=\"body.event\", message=\"body.message\" | event=~`${event:raw}` | level=~\"ERROR|WARN\" | line_format \"{{.event}} — {{.message}}\"",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "id": 8,
+      "description": "Raw Docker logs from vendor and one-shot containers only.",
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "title": "Container Logs (docker stdout)",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=~\"docker|kubernetes\", retention_class=\"system\", service_name=~\"${container_service:regex}\"}",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "id": 9,
+      "description": "Best-effort text hints for unstructured vendor logs. Treat matches as investigation leads, not canonical failure counts.",
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "title": "Container Error Hints",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{service_namespace=\"geul\", deployment_environment=~\"${environment:regex}\", exporter=~\"docker|kubernetes\", retention_class=\"system\", service_name=~\"${container_service:regex}\"} |~ \"(?i)(error|panic|fatal|exception|warn)\"",
+          "legendFormat": ""
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["geul"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "mimir"
+        },
+        "allValue": ".+",
+        "definition": "label_values(traces_spanmetrics_calls_total{span_kind=\"SPAN_KIND_SERVER\"}, service)",
+        "includeAll": true,
+        "label": "Trace service",
+        "multi": true,
+        "name": "service",
+        "query": {
+          "query": "label_values(traces_spanmetrics_calls_total{span_kind=\"SPAN_KIND_SERVER\"}, service)"
+        },
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "allValue": ".+",
+        "includeAll": true,
+        "multi": true,
+        "name": "environment",
+        "label": "Log environment",
+        "query": "production,staging,development",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "allValue": ".+",
+        "includeAll": true,
+        "multi": true,
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values({service_namespace=\"geul\", exporter=\"otlp\", retention_class=~\"application|diagnostic\", deployment_environment=~\"${environment:regex}\"}, service_name)",
+        "label": "Application service",
+        "name": "application_service",
+        "query": "label_values({service_namespace=\"geul\", exporter=\"otlp\", retention_class=~\"application|diagnostic\", deployment_environment=~\"${environment:regex}\"}, service_name)",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "allValue": ".*",
+        "includeAll": true,
+        "multi": true,
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values({service_namespace=\"geul\", exporter=\"otlp\", retention_class=\"application\", deployment_environment=~\"${environment:regex}\", service_name=~\"${application_service:regex}\"}, domain)",
+        "label": "Domain",
+        "name": "domain",
+        "query": "label_values({service_namespace=\"geul\", exporter=\"otlp\", retention_class=\"application\", deployment_environment=~\"${environment:regex}\", service_name=~\"${application_service:regex}\"}, domain)",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": ".*",
+          "value": ".*"
+        },
+        "label": "Event regex",
+        "name": "event",
+        "query": ".*",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "allValue": ".*",
+        "includeAll": true,
+        "multi": true,
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values({service_namespace=\"geul\", exporter=\"otlp\", retention_class=\"application\", deployment_environment=~\"${environment:regex}\", service_name=~\"${application_service:regex}\", domain=~\"${domain:regex}\"}, outcome)",
+        "label": "Outcome",
+        "name": "outcome",
+        "query": "label_values({service_namespace=\"geul\", exporter=\"otlp\", retention_class=\"application\", deployment_environment=~\"${environment:regex}\", service_name=~\"${application_service:regex}\", domain=~\"${domain:regex}\"}, outcome)",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "allValue": ".+",
+        "includeAll": true,
+        "label": "Log level",
+        "multi": true,
+        "name": "log_level",
+        "query": "DEBUG,INFO,WARN,ERROR",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": ".*",
+          "value": ".*"
+        },
+        "label": "Actor member ID regex",
+        "name": "actor_member_id",
+        "query": ".*",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": ".*",
+          "value": ".*"
+        },
+        "label": "Request ID regex",
+        "name": "request_id",
+        "query": ".*",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": ".*",
+          "value": ".*"
+        },
+        "label": "Trace ID regex",
+        "name": "trace_id",
+        "query": ".*",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": ".*",
+          "value": ".*"
+        },
+        "label": "Message ID regex",
+        "name": "message_id",
+        "query": ".*",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": ".*",
+          "value": ".*"
+        },
+        "label": "Command ID regex",
+        "name": "command_id",
+        "query": ".*",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": ".*",
+          "value": ".*"
+        },
+        "label": "Correlation ID regex",
+        "name": "correlation_id",
+        "query": ".*",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "allValue": ".+",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values({service_namespace=\"geul\", exporter=~\"docker|kubernetes\", retention_class=\"system\", deployment_environment=~\"${environment:regex}\"}, service_name)",
+        "includeAll": true,
+        "label": "Container service",
+        "multi": true,
+        "name": "container_service",
+        "query": "label_values({service_namespace=\"geul\", exporter=~\"docker|kubernetes\", retention_class=\"system\", deployment_environment=~\"${environment:regex}\"}, service_name)",
+        "refresh": 2,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "title": "Service Overview",
+  "uid": "geul-service-overview"
+}

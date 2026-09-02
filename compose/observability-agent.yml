@@ -1,0 +1,19 @@
+name: geul-observability-agent
+
+services:
+  alloy-agent:
+    image: grafana/alloy:v1.8.1
+    container_name: geul-alloy-agent
+    volumes:
+      - ${GEUL_ALLOY_AGENT_CONFIG:-../infra/alloy/config.agent.app.alloy}:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_agent_data:/var/lib/alloy/data
+    environment:
+      GEUL_LOKI_WRITE_URL: ${GEUL_LOKI_WRITE_URL:?set GEUL_LOKI_WRITE_URL}
+      GEUL_OBSERVABILITY_HOST: ${GEUL_OBSERVABILITY_HOST:?set GEUL_OBSERVABILITY_HOST}
+      GEUL_DEPLOYMENT_ENVIRONMENT: ${GEUL_DEPLOYMENT_ENVIRONMENT:-production}
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    restart: unless-stopped
+
+volumes:
+  alloy_agent_data:
