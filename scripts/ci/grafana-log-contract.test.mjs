@@ -1363,12 +1363,12 @@ test('Grafana provisions the dedicated PostgreSQL reader without embedding crede
   const environment = compose.services['grafana-prod'].environment;
   assert.ok(
     environment.includes(
-      'GEUL_GRAFANA_POSTGRES_USER=${GEUL_GRAFANA_POSTGRES_USER}'
+      'GEUL_GRAFANA_POSTGRES_USER=${GEUL_GRAFANA_POSTGRES_USER:?set GEUL_GRAFANA_POSTGRES_USER}'
     )
   );
   assert.ok(
     environment.includes(
-      'GEUL_GRAFANA_POSTGRES_PASSWORD=${GEUL_GRAFANA_POSTGRES_PASSWORD}'
+      'GEUL_GRAFANA_POSTGRES_PASSWORD=${GEUL_GRAFANA_POSTGRES_PASSWORD:?set GEUL_GRAFANA_POSTGRES_PASSWORD}'
     )
   );
 });

@@ -2,7 +2,7 @@ name: geul-observability-core
 
 services:
   loki-prod:
-    image: grafana/loki:3.4.2
+    image: grafana/loki:3.4.2@sha256:58a6c186ce78ba04d58bfe2a927eff296ba733a430df09645d56cdc158f3ba08
     container_name: geul-loki-prod
     ports:
       - '3100:3100'
@@ -19,7 +19,7 @@ services:
     restart: unless-stopped
 
   tempo-prod:
-    image: grafana/tempo:2.7.1
+    image: grafana/tempo:2.7.1@sha256:4443be217c396b065ee34845534199c36fdba4dc619cb96550e228d73fba6e69
     container_name: geul-tempo-prod
     ports:
       - '3200:3200'
@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
 
   mimir-prod:
-    image: grafana/mimir:2.15.0
+    image: grafana/mimir:2.15.0@sha256:85f55510e0d348140db06566659193a96bf2b2695205d44fc1092092b937e9a0
     container_name: geul-mimir-prod
     ports:
       - '9009:9009'
@@ -41,7 +41,7 @@ services:
     restart: unless-stopped
 
   alloy-prod:
-    image: grafana/alloy:v1.8.1
+    image: grafana/alloy:v1.8.1@sha256:7790f6f7fbd8e4486b4b6c6fc6a7293a73605bb79aaa7f49003cb366943724f6
     container_name: geul-alloy-prod
     ports:
       - '4317:4317'
