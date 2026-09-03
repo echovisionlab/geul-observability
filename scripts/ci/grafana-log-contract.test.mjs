@@ -737,11 +737,12 @@ test('Translation and OG terminal alerts use bounded authoritative failures', as
   assert.match(translationQuery?.model?.expr ?? '', /count_over_time\(/);
   assert.match(
     translationQuery?.model?.expr ?? '',
-    /event="translation\.job\.failed"/
+    /event="translation\.job\.terminal"/
   );
+  assert.match(translationQuery?.model?.expr ?? '', /outcome="failed"/);
   assert.match(
     translationQuery?.model?.expr ?? '',
-    /sum by \(entity_type, target_locale, reason\)/
+    /sum by \(entity_type, target_locale, error_classification\)/
   );
   assert.match(
     translationQuery?.model?.expr ?? '',
@@ -751,8 +752,16 @@ test('Translation and OG terminal alerts use bounded authoritative failures', as
     translationQuery?.model?.expr ?? '',
     /target_locale="body\.target_locale"/
   );
-  assert.match(translationQuery?.model?.expr ?? '', /reason="body\.reason"/);
+  assert.match(translationQuery?.model?.expr ?? '', /outcome="body\.outcome"/);
+  assert.match(
+    translationQuery?.model?.expr ?? '',
+    /error_classification="body\.error_classification"/
+  );
   assert.doesNotMatch(translationQuery?.model?.expr ?? '', /og_handoff_failed/);
+  assert.doesNotMatch(
+    translationQuery?.model?.expr ?? '',
+    /outcome=~.*cancelled|outcome="cancelled"|source_no_longer_current/
+  );
   assert.doesNotMatch(
     translationQuery?.model?.expr ?? '',
     /translation_job_status_total|translation_job|rawSql|increase\(/
@@ -798,7 +807,7 @@ test('Translation and OG terminal alerts use bounded authoritative failures', as
   }
 });
 
-test('Translation dashboard exposes only the source-only explicit operation contract', async () => {
+test('Translation dashboard uses active rows and the single terminal event contract', async () => {
   const { value } = (await dashboards()).find(
     ({ value }) => value.uid === 'translation-operations'
   );
@@ -812,33 +821,32 @@ test('Translation dashboard exposes only the source-only explicit operation cont
 
   for (const metric of [
     'translation_jobs_queued_total',
-    'translation_job_status_total',
-    'translation_job_duration_seconds_bucket',
-    'translation_admin_action_total',
+    'translation_request_action_total',
     'translation_og_handoff_total',
     'traces_spanmetrics_calls_total',
   ]) {
     assert.match(source, new RegExp(metric));
   }
+  assert.doesNotMatch(
+    source,
+    /translation_job_status_total|translation_job_duration_seconds|translation_admin_action_total/
+  );
 
   const variables = new Map(
     (value.templating?.list ?? []).map((variable) => [variable.name, variable])
   );
-  const staleBacklog = (value.panels ?? []).find(
-    (panel) => panel.title === 'Stale Backlog / Missing State'
+  const activeJobs = (value.panels ?? []).find(
+    (panel) => panel.title === 'Active Translation Jobs'
   );
-  const staleBacklogQuery = staleBacklog?.targets?.[0]?.rawSql ?? '';
+  const activeJobsQuery = activeJobs?.targets?.[0]?.rawSql ?? '';
   const versionRestoreLink = (value.links ?? []).find(
     (link) => link.title === 'Version Restore Audit'
   );
   assert.equal(variables.has('trigger_kind'), false);
-  assert.equal(
-    variables.get('entity_type')?.datasource?.uid,
-    'durable-records'
-  );
+  assert.equal(variables.get('entity_type')?.type, 'custom');
   assert.equal(
     variables.get('entity_type')?.query,
-    'SELECT DISTINCT entity_type AS __text, entity_type AS __value FROM translation_source_state ORDER BY entity_type'
+    'post,page,work,program_event,release,artist,label,menu,email_template,email_layout,campaign,form,privacy,terms,series'
   );
   assert.equal(variables.get('entity_type')?.allValue, undefined);
   assert.equal(
@@ -851,22 +859,22 @@ test('Translation dashboard exposes only the source-only explicit operation cont
   );
   assert.equal(variables.get('target_locale')?.allValue, undefined);
   assert.equal(
-    variables.get('failure_reason')?.query,
-    'provider_configuration,provider_authentication,provider_rate_limited,provider_unavailable,provider_rejected,provider_response_invalid,source_no_longer_current,target_apply_failed,og_handoff_failed,internal'
+    variables.get('error_classification')?.query,
+    'provider_configuration,provider_authentication,provider_rate_limited,provider_unavailable,provider_rejected,provider_response_invalid,target_apply_failed,og_handoff_failed,internal'
   );
   assert.equal(
-    variables.get('admin_action')?.query,
-    'regenerate_locale,regenerate_all,retry,cancel'
+    variables.get('request_action')?.query,
+    'generate_locale,generate_selected,retry,cancel'
   );
+  assert.equal(variables.has('admin_action'), false);
 
   const terminalPanels = (value.panels ?? []).filter((panel) =>
-    [5, 10, 11, 12].includes(panel.id)
+    [4, 5, 6, 7, 10, 11, 12].includes(panel.id)
   );
-  assert.equal(terminalPanels.length, 4);
+  assert.equal(terminalPanels.length, 7);
   for (const panel of terminalPanels) {
     assert.equal(panel.datasource?.uid, 'loki');
     const expression = panel.targets?.[0]?.expr ?? '';
-    assert.match(expression, /count_over_time\(/);
     assert.match(
       expression,
       /deployment_environment=~"\$\{environment:regex\}"/
@@ -876,23 +884,36 @@ test('Translation dashboard exposes only the source-only explicit operation cont
     assert.match(expression, /job_id="body\.job_id"/);
     assert.match(expression, /entity_type="body\.entity_type"/);
     assert.match(expression, /target_locale="body\.target_locale"/);
+    assert.match(expression, /outcome="body\.outcome"/);
     assert.match(expression, /duration_ms="body\.duration_ms"/);
-    assert.match(expression, /reason="body\.reason"/);
+    assert.match(
+      expression,
+      /error_classification="body\.error_classification"/
+    );
+    assert.match(expression, /event="translation\.job\.terminal"/);
     assert.doesNotMatch(
       expression,
-      /translation_job|rawSql|increase\(|offset \$__range/
+      /translation_job_status_total|translation_job_duration_seconds|rawSql|increase\(|offset \$__range/
     );
+  }
+  for (const panel of terminalPanels.filter((panel) => panel.id !== 6)) {
+    assert.match(panel.targets?.[0]?.expr ?? '', /count_over_time\(/);
   }
   const failedJobsExpression =
     (value.panels ?? []).find((panel) => panel.id === 5)?.targets?.[0]?.expr ??
     '';
-  assert.match(failedJobsExpression, /event="translation\.job\.failed"/);
+  assert.match(failedJobsExpression, /event="translation\.job\.terminal"/);
+  assert.match(failedJobsExpression, /outcome="failed"/);
   assert.match(failedJobsExpression, /entity_type=~`\$\{entity_type:regex\}`/);
   assert.match(
     failedJobsExpression,
     /target_locale=~`\$\{target_locale:regex\}`/
   );
-  assert.match(failedJobsExpression, /reason=~`\$\{failure_reason:regex\}`/);
+  assert.match(
+    failedJobsExpression,
+    /error_classification=~`\$\{error_classification:regex\}`/
+  );
+  assert.doesNotMatch(failedJobsExpression, /cancelled/);
   const appliedOutcomesPanel = (value.panels ?? []).find(
     (panel) => panel.id === 10
   );
@@ -906,39 +927,52 @@ test('Translation dashboard exposes only the source-only explicit operation cont
   assert.equal(appliedOutcomesPanel?.targets?.[0]?.legendFormat, 'applied');
   assert.match(
     appliedOutcomesPanel?.targets?.[0]?.expr ?? '',
-    /event="translation\.job\.applied"/
+    /event="translation\.job\.terminal"/
+  );
+  assert.match(
+    appliedOutcomesPanel?.targets?.[0]?.expr ?? '',
+    /outcome="applied"/
   );
   for (const panel of [rangeApplyRatioPanel, rateApplyRatioPanel]) {
     const expression = panel?.targets?.[0]?.expr ?? '';
-    assert.match(expression, /event="translation\.job\.applied"/);
-    assert.match(
-      expression,
-      /event=~`translation\[\.\]job\[\.\]\(applied\|failed\)`/
+    assert.equal(
+      expression.match(/event="translation\.job\.terminal"/g)?.length,
+      2
     );
+    assert.match(expression, /outcome="applied"/);
+    assert.match(expression, /outcome=~`applied\|failed`/);
+    assert.doesNotMatch(expression, /cancelled/);
     assert.doesNotMatch(expression, /published/);
   }
-  assert.doesNotMatch(joinedExpressions, /translation\.job\.published/);
-  assert.match(joinedExpressions, /translation_admin_action_total/);
+  assert.doesNotMatch(
+    joinedExpressions,
+    /translation\.job\.(?:published|applied|failed)/
+  );
+  assert.match(joinedExpressions, /translation_request_action_total/);
   const queuedPanel = (value.panels ?? []).find((panel) => panel.id === 9);
   const queuedExpression = queuedPanel?.targets?.[0]?.expr ?? '';
   assert.match(queuedExpression, /increase\(translation_jobs_queued_total/);
   assert.doesNotMatch(queuedExpression, /unless translation_jobs_queued_total/);
   assert.doesNotMatch(queuedExpression, /offset \$__range/);
-  const statusPanel = (value.panels ?? []).find((panel) => panel.id === 4);
-  assert.equal(statusPanel?.datasource?.uid, 'mimir');
+  const terminalOutcomePanel = (value.panels ?? []).find(
+    (panel) => panel.id === 4
+  );
+  assert.equal(terminalOutcomePanel?.title, 'Terminal Outcomes');
   assert.match(
-    statusPanel?.targets?.[0]?.expr ?? '',
-    /translation_job_status_total/
+    terminalOutcomePanel?.targets?.[0]?.expr ?? '',
+    /outcome=~`applied\|failed\|cancelled`/
   );
-  assert.doesNotMatch(
-    statusPanel?.targets?.[0]?.expr ?? '',
-    /count_over_time|translation\.job\./
-  );
+  const durationPanel = (value.panels ?? []).find((panel) => panel.id === 6);
+  assert.equal(durationPanel?.datasource?.uid, 'loki');
+  assert.equal(durationPanel?.fieldConfig?.defaults?.unit, 'ms');
+  assert.match(durationPanel?.targets?.[0]?.expr ?? '', /quantile_over_time\(/);
+  assert.match(durationPanel?.targets?.[0]?.expr ?? '', /unwrap duration_ms/);
+  assert.match(durationPanel?.targets?.[0]?.expr ?? '', /by \(outcome\)/);
   assert.match(
     joinedExpressions,
     /translation_og_handoff_total\{entity_type=~.*target_locale=~/
   );
-  assert.match(source, /ten-value failure catalog/);
+  assert.match(source, /nine-value error classification catalog/);
   assert.match(source, /Translation to OG Handoff/);
   assert.doesNotMatch(source, /trigger_kind/);
   assert.match(
@@ -946,43 +980,21 @@ test('Translation dashboard exposes only the source-only explicit operation cont
     /translation\[\.\]provider\[\.\]\(upload\|poll\|download\)/
   );
   assert.match(joinedExpressions, /span_kind="SPAN_KIND_CLIENT"/);
-  assert.equal(staleBacklog?.datasource?.uid, 'durable-records');
-  assert.match(staleBacklogQuery, /status = 'stale'/);
-  assert.match(staleBacklogQuery, /translation_source_state/);
-  assert.match(staleBacklogQuery, /translation_locale/);
-  assert.match(staleBacklogQuery, /Missing entries \(informational\)/);
-  assert.match(staleBacklog?.description ?? '', /Missing can be intentional/);
+  assert.equal(activeJobs?.datasource?.uid, 'durable-records');
+  assert.match(activeJobsQuery, /FROM translation_job/);
+  assert.match(activeJobsQuery, /status IN \('queued', 'running'\)/);
   assert.doesNotMatch(
-    staleBacklogQuery,
-    /locale\.(?:enabled|is_public)|expected_entries|required_coverage/i
+    activeJobsQuery,
+    /_translation\b|translation_source_state|translation_locale/
   );
-  assert.match(staleBacklogQuery, /entity_type:sqlstring/);
-  assert.match(staleBacklogQuery, /target_locale:sqlstring/);
-  assert.doesNotMatch(staleBacklogQuery, /:regex/);
-  for (const table of [
-    'post_translation',
-    'page_translation',
-    'work_translation',
-    'program_event_translation',
-    'release_translation',
-    'artist_translation',
-    'label_translation',
-    'menu_translation',
-    'email_template_translation',
-    'email_layout_translation',
-    'campaign_translation',
-    'form_translation',
-    'privacy_translation',
-    'terms_translation',
-    'series_translation',
-  ]) {
-    assert.match(staleBacklogQuery, new RegExp(`\\b${table}\\b`));
-  }
+  assert.match(activeJobsQuery, /entity_type:sqlstring/);
+  assert.match(activeJobsQuery, /target_locale:sqlstring/);
+  assert.doesNotMatch(activeJobsQuery, /:regex/);
   assert.equal(
     versionRestoreLink?.url,
     '/d/geul-audit-security/audit-security?var-changed_field=version_restore'
   );
-  assert.match(source, /existing Translation job ID was requeued/);
+  assert.doesNotMatch(source, /existing Translation job ID was requeued/);
   assert.match(joinedExpressions, /event=~`job\\\.\(succeeded\|failed\)`/);
   assert.match(joinedExpressions, /job_kind="og_generation"/);
   assert.doesNotMatch(
