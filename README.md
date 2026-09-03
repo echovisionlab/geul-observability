@@ -26,6 +26,14 @@ Provide Grafana and Alloy credentials through environment variables or your
 orchestrator's secret store. Use a dedicated PostgreSQL reader. The configured
 queries are read-only. Never commit connection strings or passwords.
 
+## Translation telemetry
+
+The Translation operations dashboard consumes the single
+`translation.job.terminal` event and separates its bounded `applied`, `failed`,
+and `cancelled` outcomes. Only current `queued` and `running` rows are read from
+`translation_job`; terminal counts, latency, and failure classification come
+from terminal log telemetry.
+
 ## Release
 
 Release Please creates `v*` GitHub releases from `main`. This repository does
