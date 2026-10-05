@@ -3,8 +3,11 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
+    paths-ignore:
+      - '.github/**'
+      - '.release-please-manifest.json'
+      - 'CHANGELOG.md'
+      - 'release-please-config.json'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -23,22 +26,100 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           clean: true
+          fetch-depth: 0
           persist-credentials: false
 
+      - name: Classify pull request changes
+        id: scope
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+
+          run_full=true
+          reason="full validation is required"
+
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] &&
+             [[ "${HEAD_REF}" = release-please--* ]] &&
+             [ -n "${BASE_SHA}" ] &&
+             [ -n "${HEAD_SHA}" ]; then
+            changed_files="$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}")"
+            metadata_only=true
+            [ -n "${changed_files}" ] || metadata_only=false
+
+            while IFS= read -r path; do
+              case "${path}" in
+                .release-please-manifest.json|CHANGELOG.md|package.json|package-lock.json) ;;
+                *) metadata_only=false ;;
+              esac
+            done <<< "${changed_files}"
+
+            if [ "${metadata_only}" = "true" ]; then
+              if ! python3 - "${BASE_SHA}" "${HEAD_SHA}" <<'PY'
+          import json
+          import subprocess
+          import sys
+
+          def read_package(revision: str) -> tuple[str, dict, dict]:
+              package = json.loads(subprocess.check_output(
+                  ["git", "show", f"{revision}:package.json"], text=True
+              ))
+              lock = json.loads(subprocess.check_output(
+                  ["git", "show", f"{revision}:package-lock.json"], text=True
+              ))
+              version = package.pop("version")
+              if not isinstance(version, str):
+                  raise SystemExit(1)
+              if lock.pop("version") != version or lock["packages"][""].pop("version") != version:
+                  raise SystemExit(1)
+              return version, package, lock
+
+          base_version, base_package, base_lock = read_package(sys.argv[1])
+          head_version, head_package, head_lock = read_package(sys.argv[2])
+          if base_version == head_version or base_package != head_package or base_lock != head_lock:
+              raise SystemExit(1)
+          PY
+              then
+                metadata_only=false
+              fi
+            fi
+
+            if [ "${metadata_only}" = "true" ]; then
+              run_full=false
+              reason="Release Please metadata-only pull request"
+            fi
+          fi
+
+          echo "run_full=${run_full}" >> "${GITHUB_OUTPUT}"
+          echo "reason=${reason}" >> "${GITHUB_OUTPUT}"
+          {
+            echo "### CI scope"
+            echo
+            echo "${reason}."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Set up Node.js
+        if: steps.scope.outputs.run_full == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
 
       - name: Install dependencies
+        if: steps.scope.outputs.run_full == 'true'
         run: npm ci
 
       - name: Check Prettier formatting
+        if: steps.scope.outputs.run_full == 'true'
         run: npm run format:check
 
       - name: Run Node tests
+        if: steps.scope.outputs.run_full == 'true'
         run: npm test
 
       - name: Check YAML
+        if: steps.scope.outputs.run_full == 'true'
         run: npm run check:yaml
