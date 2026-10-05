@@ -2,7 +2,7 @@ name: geul-observability-agent
 
 services:
   alloy-agent:
-    image: grafana/alloy:v1.8.1@sha256:7790f6f7fbd8e4486b4b6c6fc6a7293a73605bb79aaa7f49003cb366943724f6
+    image: grafana/alloy:v1.20.1@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
     container_name: geul-alloy-agent
     volumes:
       - ${GEUL_ALLOY_AGENT_CONFIG:-../infra/alloy/config.agent.app.alloy}:/etc/alloy/config.alloy:ro

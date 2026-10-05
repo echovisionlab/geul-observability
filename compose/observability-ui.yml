@@ -2,7 +2,7 @@ name: geul-observability-ui
 
 services:
   grafana-prod:
-    image: grafana/grafana:11.5.2@sha256:8b37a2f028f164ce7b9889e1765b9d6ee23fec80f871d156fbf436d6198d32b7
+    image: grafana/grafana:13.2.3@sha256:b28bae15e219c998fb0e0424ed724930cc61b1f61fb404d47c862f9a23f9e572
     container_name: geul-grafana-prod
     ports:
       - '3500:3000'

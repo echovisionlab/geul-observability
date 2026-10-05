@@ -676,11 +676,17 @@ test('synchronous authorization boundary alerts use implemented metrics', async 
     rules.map((rule) => rule.uid),
     [
       'geul-authorization-commit-uncertain',
-      'geul-authorization-rollback-compensation-failed',
-      'geul-authorization-write-outcome-uncertain',
-      'geul-authorization-spicedb-to-database-commit-prolonged',
+      'geul-auth-rollback-compensation-failed',
+      'geul-auth-write-outcome-uncertain',
+      'geul-auth-spicedb-db-commit-prolonged',
     ]
   );
+  for (const rule of rules) {
+    assert.ok(
+      rule.uid.length <= 40,
+      `Grafana rule UID exceeds 40 characters: ${rule.uid}`
+    );
+  }
   const expectedQueries = [
     /authorization_boundary_failure_total\{failure="commit_uncertain"\}/,
     /authorization_boundary_failure_total\{failure="rollback_compensation_failed"\}/,
@@ -1075,11 +1081,11 @@ test('unowned alert notifications are muted without disabling evaluation', async
   ]);
 
   const root = config.policies?.[0];
-  assert.equal(root?.receiver, 'grafana-default-email');
+  assert.equal(root?.receiver, 'empty');
   assert.equal(root?.mute_time_intervals, undefined);
   assert.deepEqual(root?.routes, [
     {
-      receiver: 'grafana-default-email',
+      receiver: 'empty',
       object_matchers: [['notification_stage', '=', 'disabled']],
       mute_time_intervals: ['geul-alert-notifications-disabled'],
     },

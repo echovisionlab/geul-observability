@@ -106,6 +106,10 @@ test('Mimir and Tempo apply the approved bounded retention periods', async () =>
 
   for (const tempoConfigUrl of tempoConfigUrls) {
     const tempo = parse(await readFile(tempoConfigUrl, 'utf8'));
-    assert.equal(tempo.compactor.compaction.block_retention, '336h');
+    assert.equal(
+      tempo.backend_scheduler.provider.compaction.compaction.block_retention,
+      '336h'
+    );
+    assert.equal(tempo.backend_worker.compaction.block_retention, '336h');
   }
 });

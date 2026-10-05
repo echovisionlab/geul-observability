@@ -63,7 +63,7 @@ groups:
           domain: authorization
           notification_stage: disabled
           severity: critical
-      - uid: geul-authorization-rollback-compensation-failed
+      - uid: geul-auth-rollback-compensation-failed
         title: Authorization rollback compensation failed
         condition: B
         data:
@@ -120,7 +120,7 @@ groups:
           domain: authorization
           notification_stage: disabled
           severity: critical
-      - uid: geul-authorization-write-outcome-uncertain
+      - uid: geul-auth-write-outcome-uncertain
         title: Authorization SpiceDB write outcome uncertain
         condition: B
         data:
@@ -177,7 +177,7 @@ groups:
           domain: authorization
           notification_stage: disabled
           severity: critical
-      - uid: geul-authorization-spicedb-to-database-commit-prolonged
+      - uid: geul-auth-spicedb-db-commit-prolonged
         title: Authorization SpiceDB-to-database commit interval prolonged
         condition: B
         data:
