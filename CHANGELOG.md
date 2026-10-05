@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3](https://github.com/echovisionlab/geul-observability/compare/v0.1.2...v0.1.3) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deps:** refresh observability runtimes and configuration tooling ([#6](https://github.com/echovisionlab/geul-observability/issues/6)) ([1580c72](https://github.com/echovisionlab/geul-observability/commit/1580c726a4e9c5cc0bc810ee7f636099f4d00232))
+
 ## [0.1.2](https://github.com/echovisionlab/geul-observability/compare/v0.1.1...v0.1.2) (2026-09-03)
 
 
